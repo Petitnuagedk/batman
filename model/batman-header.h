@@ -17,11 +17,10 @@ namespace ns3
 class BatmanHeader : public Header
 {
   public:
-    /** Message type identifiers supported by this header. */
-    enum MessageType : uint8_t
-    {
-        OGM = 1 ///< Originator Message.
-    };
+    static constexpr uint8_t VERSION = 4;                  ///< Draft-00 compatibility version.
+    static constexpr uint8_t UNIDIRECTIONAL_FLAG = 0x80;   ///< Unidirectional-link flag mask.
+    static constexpr uint8_t DIRECT_LINK_FLAG = 0x40;      ///< Direct-link flag mask.
+    static constexpr uint32_t SERIALIZED_SIZE = 12;        ///< OGM header size in octets.
 
     BatmanHeader();
 
@@ -56,6 +55,12 @@ class BatmanHeader : public Header
     uint32_t Deserialize(Buffer::Iterator start) override;
 
     /**
+     * Get the BATMAN compatibility version.
+     *
+     * @return Wire-format version.
+     */
+    uint8_t GetVersion() const;
+    /**
      * Set the IPv4 address that originated this message.
      *
      * @param address Originator IPv4 address.
@@ -68,29 +73,17 @@ class BatmanHeader : public Header
      */
     Ipv4Address GetOriginator() const;
     /**
-     * Set this message's sequence number.
+     * Set this message's 16-bit sequence number.
      *
      * @param sequence Originator sequence number.
      */
-    void SetSequence(uint32_t sequence);
+    void SetSequence(uint16_t sequence);
     /**
      * Get this message's sequence number.
      *
      * @return Originator sequence number.
      */
-    uint32_t GetSequence() const;
-    /**
-     * Set the propagated route-quality value.
-     *
-     * @param tq Route-quality value.
-     */
-    void SetTq(uint8_t tq);
-    /**
-     * Get the propagated route-quality value.
-     *
-     * @return Route-quality value.
-     */
-    uint8_t GetTq() const;
+    uint16_t GetSequence() const;
     /**
      * Set the remaining message lifetime.
      *
@@ -104,25 +97,62 @@ class BatmanHeader : public Header
      */
     uint8_t GetTtl() const;
     /**
-     * Set the control message type.
+     * Set the gateway capability flags.
      *
-     * @param type Message type.
+     * @param flags Gateway flags.
      */
-    void SetType(MessageType type);
+    void SetGatewayFlags(uint8_t flags);
     /**
-     * Get the control message type.
+     * Get the gateway capability flags.
      *
-     * @return Message type.
+     * @return Gateway flags.
      */
-    MessageType GetType() const;
+    uint8_t GetGatewayFlags() const;
+    /**
+     * Set the UDP port advertised for gateway tunneling.
+     *
+     * @param port Gateway UDP port.
+     */
+    void SetGatewayPort(uint16_t port);
+    /**
+     * Get the advertised gateway UDP port.
+     *
+     * @return Gateway UDP port.
+     */
+    uint16_t GetGatewayPort() const;
+    /**
+     * Set whether the packet was received via a unidirectional link.
+     *
+     * @param unidirectional True to set the U flag.
+     */
+    void SetUnidirectional(bool unidirectional);
+    /**
+     * Check whether the U flag is set.
+     *
+     * @return True if the packet is marked unidirectional.
+     */
+    bool IsUnidirectional() const;
+    /**
+     * Set whether the packet was received directly from its originator.
+     *
+     * @param directLink True to set the D flag.
+     */
+    void SetDirectLink(bool directLink);
+    /**
+     * Check whether the D flag is set.
+     *
+     * @return True if the packet is marked as direct-link.
+     */
+    bool IsDirectLink() const;
 
   private:
-    uint8_t m_version;        ///< Wire-format version.
-    MessageType m_type;       ///< Control message type.
-    uint8_t m_ttl;            ///< Remaining flood lifetime.
-    uint8_t m_tq;             ///< Simplified propagated route-quality value.
-    Ipv4Address m_originator; ///< Originator IPv4 address.
-    uint32_t m_sequence;      ///< Originator sequence number.
+    uint8_t m_version;           ///< BATMAN protocol compatibility version.
+    uint8_t m_flags;             ///< U and D flags in the two most significant bits.
+    uint8_t m_ttl;               ///< Remaining flood lifetime.
+    uint8_t m_gatewayFlags;      ///< Gateway bandwidth capability.
+    uint16_t m_sequence;         ///< 16-bit originator sequence number.
+    uint16_t m_gatewayPort;      ///< Gateway tunnel UDP port.
+    Ipv4Address m_originator;    ///< Originator interface IPv4 address.
 };
 
 } // namespace ns3

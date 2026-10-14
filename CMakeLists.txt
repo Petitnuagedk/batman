@@ -13,4 +13,6 @@ build_lib(
     ${libwifi}
   TEST_SOURCES
     test/batman-test-suite.cc
+  TEST_LIBRARIES_TO_LINK
+    ${libflow-monitor}
 )

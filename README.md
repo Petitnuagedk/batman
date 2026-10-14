@@ -1,47 +1,34 @@
-# BATMAN-inspired IPv4 routing for ns-3
+# BATMAN-IV for ns-3
 
-**Status: first implementation proposition; not yet build-validated against a particular ns-3 checkout.** This is a native C++ proactive IPv4 routing protocol for experimentation. It is not Linux `batman-adv`, is not wire-compatible with it, and does not implement Ethernet bridging, client translation tables, BLA, VLAN behavior, or the complete Linux TQ/neighbor algorithm.
+This contribution is an experimental IPv4 `Ipv4RoutingProtocol` implementation based on the attached `draft-wunderlich-openmesh-manet-routing-00` (April 2008). The source is an expired Internet-Draft, not a finalized RFC or a specification of Linux `batman-adv`. The implementation focuses on OGM origination, duplicate suppression, bidirectional-neighbor validation, window-based route selection, relay, expiry, and route lookup. It is not a complete BATMAN implementation.
 
-## Features in this first milestone
+## Build and test
 
-- `Ipv4RoutingProtocol` integration and `BatmanHelper`.
-- Module-specific 12-byte OGM header carried in UDP broadcast packets.
-- Periodic originator advertisements, duplicate suppression, TTL-limited flooding.
-- Originator/next-hop table with sequence-number comparison and route expiry.
-- Basic direct-subnet routing and IPv4 forwarding integration.
-- A five-node ad hoc Wi-Fi chain example and a header serialization test.
-
-The route-quality field is currently a propagated, simplified metric. It is not a faithful implementation of Linux BATMAN's TQ calculation, and route selection primarily uses freshness. This is suitable as an initial ns-3 integration prototype, not for publication-grade protocol comparisons until the metric and failure handling are further validated.
-
-## Integrate
-
-Copy this directory to `<ns-3-root>/contrib/batman`. The module uses the modern ns-3 CMake module layout. Configure and build with the commands supported by your checkout, typically:
+The module is intended to be built as part of ns-3 after it has been enabled in the top-level configuration:
 
 ```sh
 ./ns3 configure --enable-examples --enable-tests
-./ns3 build
-./test.py -s batman
-./ns3 run "batman-chain"
+./ns3 build batman
+./ns3 run 'test-runner --suite=batman --fullness=EXTENSIVE --verbose'
+./ns3 run batman-chain
 ```
 
-The example deliberately installs no global routing protocol. It forms a five-node Wi-Fi chain with 50 m spacing and a configurable propagation range (55 m by default), then sends UDP traffic from node 0 to node 4. Exit status 0 means at least one UDP packet reached the server; status 2 means no packet arrived.
+The `batman` test suite covers header serialization, 16-bit sequence wrap, duplicate/replay suppression, asymmetric-link rejection, route selection with a lossy first sample, failover, mobility expiry/relearning, and FlowMonitor metrics over ten random seeds. The chain example prints per-seed delivery and delay statistics and route tables; results depend on topology, channel configuration, and random seed.
 
-Example parameters:
+## Draft-to-implementation limitations and assumptions
 
-```sh
-./ns3 run "batman-chain --stopTime=20 --spacing=45 --range=52"
-```
+The draft is the authority for protocol behavior where it is explicit. Where it is silent or incomplete, the implementation uses the following documented approximations; these must not be interpreted as standardized BATMAN requirements:
 
-## Current limitations / next work
+- **Link-quality metric:** The draft describes TQ and its use for route selection but does not provide the complete TQ computation, asymmetry calculation, or per-hop penalty formula. This implementation selects a route using the count of sequence numbers observed in a fixed per-neighbor window. It does not claim wire- or metric-level interoperability with another BATMAN implementation.
+- **Bidirectional-link timeout:** The draft does not define `BI_LINK_TIMEOUT`. The implementation approximates echo-state expiry using the configured 128-entry sequence window and OGM interval. This is an implementation choice, not a draft constant.
+- **TTL:** The draft constrains TTL to a range but does not state a default. The implementation retains the prototype's configured default; relaying decrements TTL and does not relay an exhausted packet.
+- **Jitter:** The draft gives maximum delays of 200 ms for originator scheduling and 100 ms for rebroadcast but does not define a probability distribution. Uniform random jitter within these bounds is assumed here.
+- **OGM scope:** The implementation handles the draft's OGM fields and IPv4 originator addresses. It does not implement HNA announcements or their network-prefix advertisement/withdrawal behavior.
+- **Gateway functionality:** Gateway flags and advertised gateway fields are represented in the header, but gateway discovery policy, gateway selection, and tunneled Internet traffic are not implemented.
+- **Addressing and interfaces:** The implementation is IPv4-only and maintains state per interface/neighbor. Multi-address nodes, address changes, interface hot-plugging, and interoperability corner cases are not comprehensively validated.
+- **Transport and interoperability:** OGMs are sent with interface-bound UDP sockets using limited broadcast. This supports the tested ns-3 broadcast path; it does not establish interoperability with the draft's other possible link-layer environments or with Linux `batman-adv`.
+- **Validation scope:** Automated coverage includes deterministic protocol-unit/topology scenarios and a ten-seed, small-chain FlowMonitor experiment. This is not a broad performance study, formal conformance suite, or evidence of production readiness.
 
-1. Build and test against a declared ns-3 release; small API differences may need adaptation.
-2. Improve route selection using measured forward/reverse delivery ratios and a documented TQ algorithm.
-3. Use bounded time-based duplicate-cache expiry rather than coarse clearing.
-4. Add multi-interface, address-removal, interface-failure, sequence-wrap, and mobility integration tests.
-5. Add FlowMonitor statistics and automated PDR / delay assertions.
-6. Validate convergence and route recovery under repeatable topology changes.
-7. Add the full Linux batman-adv Layer-2 model only if that is the required research target.
+## Status
 
-## License
-
-This original prototype is provided for integration and evaluation. Check the licensing requirements of the target ns-3 tree before redistribution. No Linux kernel implementation code is copied into this module.
+Experimental research code. Treat all unspecified protocol behavior as provisional, and consult the attached draft and source comments before extending the implementation.

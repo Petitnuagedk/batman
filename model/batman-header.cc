@@ -8,12 +8,13 @@ NS_LOG_COMPONENT_DEFINE("BatmanHeader");
 NS_OBJECT_ENSURE_REGISTERED(BatmanHeader);
 
 BatmanHeader::BatmanHeader()
-    : m_version(1),
-      m_type(OGM),
-      m_ttl(50),
-      m_tq(255),
-      m_originator(Ipv4Address::GetZero()),
-      m_sequence(0)
+    : m_version(VERSION),
+    m_flags(0),
+    m_ttl(50),
+    m_gatewayFlags(0),
+    m_sequence(0),
+    m_gatewayPort(0),
+    m_originator(Ipv4Address::GetZero())
 {
 }
 
@@ -36,37 +37,46 @@ BatmanHeader::GetInstanceTypeId() const
 void
 BatmanHeader::Print(std::ostream& os) const
 {
-    os << "type=" << unsigned(m_type) << " originator=" << m_originator << " seq=" << m_sequence
-       << " tq=" << unsigned(m_tq) << " ttl=" << unsigned(m_ttl);
+        os << "version=" << unsigned(m_version) << " flags=0x" << std::hex
+             << unsigned(m_flags) << std::dec << " originator=" << m_originator
+             << " seq=" << m_sequence << " ttl=" << unsigned(m_ttl);
 }
 
 uint32_t
 BatmanHeader::GetSerializedSize() const
 {
-    return 12;
+    return SERIALIZED_SIZE;
 }
 
 void
 BatmanHeader::Serialize(Buffer::Iterator i) const
 {
     i.WriteU8(m_version);
-    i.WriteU8(static_cast<uint8_t>(m_type));
+    i.WriteU8(m_flags);
     i.WriteU8(m_ttl);
-    i.WriteU8(m_tq);
+    i.WriteU8(m_gatewayFlags);
+    i.WriteHtonU16(m_sequence);
+    i.WriteHtonU16(m_gatewayPort);
     i.WriteHtonU32(m_originator.Get());
-    i.WriteHtonU32(m_sequence);
 }
 
 uint32_t
 BatmanHeader::Deserialize(Buffer::Iterator i)
 {
     m_version = i.ReadU8();
-    m_type = static_cast<MessageType>(i.ReadU8());
+    m_flags = i.ReadU8();
     m_ttl = i.ReadU8();
-    m_tq = i.ReadU8();
+    m_gatewayFlags = i.ReadU8();
+    m_sequence = i.ReadNtohU16();
+    m_gatewayPort = i.ReadNtohU16();
     m_originator = Ipv4Address(i.ReadNtohU32());
-    m_sequence = i.ReadNtohU32();
     return GetSerializedSize();
+}
+
+uint8_t
+BatmanHeader::GetVersion() const
+{
+    return m_version;
 }
 
 void
@@ -82,27 +92,15 @@ BatmanHeader::GetOriginator() const
 }
 
 void
-BatmanHeader::SetSequence(uint32_t s)
+BatmanHeader::SetSequence(uint16_t s)
 {
     m_sequence = s;
 }
 
-uint32_t
+uint16_t
 BatmanHeader::GetSequence() const
 {
     return m_sequence;
-}
-
-void
-BatmanHeader::SetTq(uint8_t q)
-{
-    m_tq = q;
-}
-
-uint8_t
-BatmanHeader::GetTq() const
-{
-    return m_tq;
 }
 
 void
@@ -118,14 +116,52 @@ BatmanHeader::GetTtl() const
 }
 
 void
-BatmanHeader::SetType(MessageType t)
+BatmanHeader::SetGatewayFlags(uint8_t flags)
 {
-    m_type = t;
+    m_gatewayFlags = flags;
 }
 
-BatmanHeader::MessageType
-BatmanHeader::GetType() const
+uint8_t
+BatmanHeader::GetGatewayFlags() const
 {
-    return m_type;
+    return m_gatewayFlags;
+}
+
+void
+BatmanHeader::SetGatewayPort(uint16_t port)
+{
+    m_gatewayPort = port;
+}
+
+uint16_t
+BatmanHeader::GetGatewayPort() const
+{
+    return m_gatewayPort;
+}
+
+void
+BatmanHeader::SetUnidirectional(bool unidirectional)
+{
+    m_flags = unidirectional ? m_flags | UNIDIRECTIONAL_FLAG
+                             : m_flags & static_cast<uint8_t>(~UNIDIRECTIONAL_FLAG);
+}
+
+bool
+BatmanHeader::IsUnidirectional() const
+{
+    return (m_flags & UNIDIRECTIONAL_FLAG) != 0;
+}
+
+void
+BatmanHeader::SetDirectLink(bool directLink)
+{
+    m_flags = directLink ? m_flags | DIRECT_LINK_FLAG
+                         : m_flags & static_cast<uint8_t>(~DIRECT_LINK_FLAG);
+}
+
+bool
+BatmanHeader::IsDirectLink() const
+{
+    return (m_flags & DIRECT_LINK_FLAG) != 0;
 }
 } // namespace ns3
